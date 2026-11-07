@@ -5,11 +5,41 @@ GET  /now          -> estado de Música en JSON (se refresca 4 veces por segundo
 GET  /art          -> carátula de la canción actual
 POST /cmd?c=...    -> playpause | seek:+5 | seek:-5 | start
 """
+import os as _os
+# el puente congelado no trae certificados: usa los del sistema para portadas, letras y fotos por https
+if _os.path.exists('/etc/ssl/cert.pem'): _os.environ['SSL_CERT_FILE'] = '/etc/ssl/cert.pem'
+try:
+    import ssl as _ssl
+    if _os.path.exists('/etc/ssl/cert.pem'):
+        _ssl._create_default_https_context = lambda *a, **k: _ssl.create_default_context(cafile='/etc/ssl/cert.pem')
+except Exception:
+    pass
+
 import hashlib, unicodedata, json, os, platform, queue, re, select, shutil, signal, socket, socketserver, subprocess, sys, threading, time, tempfile, urllib.request, urllib.parse
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 from media_http import serve_media
+
+# el puente congelado puede quedarse sin ssl/certificados: si urlopen falla en https, se repite con curl del sistema
+import io as _io, subprocess as _sp, urllib.request as _ur
+_urlopen = _ur.urlopen
+class _CurlResp(_io.BytesIO):
+    def __enter__(self): return self
+    def __exit__(self, *a): self.close()
+    def getheader(self, n, d=None): return d
+def _urlopen_curl(req, data=None, timeout=10, **kw):
+    try:
+        return _urlopen(req, data, timeout=timeout, **kw)
+    except Exception as e:
+        url = req if isinstance(req, str) else req.full_url
+        if not url.startswith('https'): raise
+        cmd = ['/usr/bin/curl', '-sfL', '--max-time', str(int(timeout) + 2)]
+        for k, v in ({} if isinstance(req, str) else dict(req.header_items())).items(): cmd += ['-H', '%s: %s' % (k, v)]
+        r = _sp.run(cmd + [url], capture_output=True, timeout=timeout + 5)
+        if r.returncode != 0: raise e
+        return _CurlResp(r.stdout)
+_ur.urlopen = _urlopen_curl
 
 VERSION = '1.0'
 PORT = int(os.environ.get('LUMORA_PORT') or 8888)
@@ -795,9 +825,8 @@ def poll():
                     has = False
                     try:
                         if src == 'spotify' and art_url:
-                            with urllib.request.urlopen(art_url, timeout=8) as r, open(ART, 'wb') as f:
-                                f.write(r.read())
-                            has = True
+                            # curl usa los certificados del sistema aunque el puente congelado no traiga los suyos
+                            has = subprocess.run(['/usr/bin/curl', '-sfL', '--max-time', '8', '-o', ART, art_url], timeout=12).returncode == 0 and os.path.getsize(ART) > 0
                         elif src == 'music':
                             has = osa(ART_SCRIPT) == 'ok'
                     except Exception:
