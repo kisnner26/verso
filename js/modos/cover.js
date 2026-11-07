@@ -6,11 +6,10 @@
 // adelantar y póster del verso. Todo se recuerda.
 // Se abre con la carátula de la consola o la tecla c; se cierra con esc o c.
 // ============================================================
-const CV_DEF = { style: 'difuminado', lyr: 'linea', size: 'm', beat: true, clock: false, pin: false, react: true, ring: false, holo: false, depth: false, trata: false, tab: 'fondo', layout: 'editorial', font: 'humanista', align: 'left', lineSize: 34, listSize: 32, trSize: 18, lyricWidth: 42, leading: 1.25, letterSpace: 0, lyricLift: 0, context: true, focus: false };
+const CV_DEF = { style: 'difuminado', lyr: 'linea', size: 'm', beat: true, clock: false, pin: false, react: true, ring: false, holo: false, depth: false, trata: false, tab: 'fondo' };
 const CV = (() => { try { return { ...CV_DEF, ...JSON.parse(localStorage.getItem('lm_cover2') || '{}') }; } catch (e) { return { ...CV_DEF }; } })();
 CV.art = ''; CV.listKey = '';
-if (!['fondo', 'vista', 'letra', 'diseno', 'sonido'].includes(CV.tab)) CV.tab = 'fondo';
-const cvReduced = () => !!window.CFG?.reduceMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (!['fondo', 'vista', 'sonido'].includes(CV.tab)) CV.tab = 'fondo';
 const cvSave = () => { try { localStorage.setItem('lm_cover2', JSON.stringify(Object.fromEntries(Object.keys(CV_DEF).map(k => [k, CV[k]])))); } catch (e) {} };
 const cvEsc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const CV_OPTS = {
@@ -25,7 +24,7 @@ const CV_DESC = {
            vinilo: 'el disco con su brazo y su aguja. Arrástralo en círculo para adelantar o atrasar', cassette: 'la cinta asoma detrás. Arrástrala de lado para moverte por la canción',
            cd: 'el disco iridiscente asoma. Arrástralo en círculo para adelantar o atrasar', estanteria: 'los discos que escuchaste desfilan abajo, el último primero',
            artista: 'otras portadas del artista flotan detrás, despacio', universo: 'un lugar generado para esta canción, que respira con los graves. cada semilla es un mundo distinto' },
-  lyr: { linea: 'el verso que suena, adaptado a la composición elegida', completa: 'toda la letra al lado; toca un verso para saltar ahí', no: 'solo la portada, sin letra' },
+  lyr: { linea: 'el verso que suena, debajo de la portada', completa: 'toda la letra al lado; toca un verso para saltar ahí', no: 'solo la portada, sin letra' },
   size: { s: 'portada chica: más aire alrededor', m: 'portada mediana', l: 'portada grande, casi a pantalla' },
 };
 const cvLabel = (k, v) => (CV_OPTS[k].find(o => o[0] === v) || [, v])[1];
@@ -131,7 +130,7 @@ setInterval(() => {
   #cover .covermeta b { font:italic 300 clamp(26px,3.6vw,48px)/1.05 'Anybody',sans-serif; font-variation-settings:'wdth' 118; color:var(--paper); }
   #cover[data-style=minimo] .covermeta b { font:800 clamp(36px,6vw,88px)/.9 'Anybody',sans-serif; font-style:normal; font-variation-settings:'wdth' 62; letter-spacing:-.01em; }
   #cover .covermeta span { font:400 10px/2.6 'Martian Mono',monospace; letter-spacing:.22em; text-transform:uppercase; color:var(--faint); }
-  .cv-line { text-align:center; max-width:min(80vw,860px); min-height:2.8em; }
+  .cv-line { text-align:center; text-wrap:balance; overflow-wrap:anywhere; max-width:min(80vw,860px); min-height:2.8em; }
   .cv-line b { display:block; font:600 clamp(17px,2vw,26px)/1.25 'Anybody',sans-serif; font-variation-settings:'wdth' 104; color:var(--paper); }
   .cv-line span { display:block; margin-top:4px; font:italic 300 clamp(14px,1.5vw,18px)/1.3 'Cormorant Garamond',serif; color:#ffe2b0; }
   #cover:not([data-lyr=linea]) .cv-line { display:none; }
@@ -141,9 +140,9 @@ setInterval(() => {
   #cover[data-lyr=completa] .cv-full { display:block; }
   #cover[data-lyr=completa] .cv-left .covermeta b { font-size:clamp(22px,2.6vw,36px); }
   .cv-list { position:absolute; left:0; right:0; top:0; transition:transform .7s cubic-bezier(.2,.8,.2,1); }
-  .cv-list p { margin:0; padding:9px 0; cursor:pointer; color:rgba(246,238,226,.28); font:700 clamp(18px,2vw,30px)/1.2 'Anybody',sans-serif; font-variation-settings:'wdth' 100; transition:color .35s, transform .35s; transform-origin:left center; }
+  .cv-list p { margin:0; padding:9px 0; cursor:pointer; color:rgba(246,238,226,.28); font:700 clamp(18px,2vw,30px)/1.2 'Anybody',sans-serif; font-variation-settings:'wdth' 100; transition:color .35s, transform .35s; transform-origin:left center; padding-right:5%; box-sizing:border-box; overflow-wrap:anywhere; text-wrap:pretty; }
   .cv-list p:hover { color:rgba(246,238,226,.55); }
-  .cv-list p.on { color:var(--paper); transform:scale(1.03); text-shadow:0 0 30px rgba(255,190,120,.25); }
+  .cv-list p.on { color:var(--paper); transform:translateX(6px); text-shadow:0 0 30px rgba(255,190,120,.25); }
   .cv-list p.past { color:rgba(246,238,226,.42); }
   .cv-list p small { display:block; font:italic 300 .62em/1.3 'Cormorant Garamond',serif; color:rgba(255,226,176,.5); margin-top:2px; }
   .cv-list p.on small { color:#ffe2b0; }
@@ -156,7 +155,7 @@ setInterval(() => {
 
   .cv-float { position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:3; transition:opacity .5s, transform .5s cubic-bezier(.2,.8,.2,1); }
   body.idle #cover:not([data-pin="1"]):not(.menu) .cv-float { opacity:0; transform:translate(-50%, 16px); pointer-events:none; }
-  .cv-float button, :where(#cvMenu) button { font:inherit; color:var(--mute); background:none; border:0; cursor:pointer; padding:0; }
+  .cv-float button { font:inherit; color:var(--mute); background:none; border:0; cursor:pointer; padding:0; }
   .cv-player { display:flex; align-items:center; gap:14px; width:min(620px, calc(100vw - 32px)); padding:8px 10px 8px 8px; border-radius:999px;
                background:linear-gradient(180deg, rgba(26,20,15,.72), rgba(12,10,8,.82)); border:1px solid var(--rule); backdrop-filter:blur(24px) saturate(1.4);
                box-shadow:0 20px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06); }
@@ -500,7 +499,6 @@ const cvSeg = k => `<div class="cv-seg">${CV_OPTS[k].map(([v, t]) => `<button da
   const setVars = o => { for (const k in o) art.style.setProperty(k, o[k]); };
   function resetTilt() { setVars({ '--tiltX': '0deg', '--tiltY': '0deg', '--px': 0, '--py': 0 }); }
   cover.addEventListener('mousemove', e => {
-    if (cvReduced()) return resetTilt();
     if (!CV.depth && !CV.holo) return;
     const r = art.getBoundingClientRect();
     const px = clamp((e.clientX - (r.left + r.width / 2)) / (r.width / 2), -1, 1), py = clamp((e.clientY - (r.top + r.height / 2)) / (r.height / 2), -1, 1);
@@ -556,11 +554,10 @@ function cvPaint() {
   cover.dataset.style = CV.style; cover.dataset.size = CV.size; cover.dataset.lyr = hasLyr ? CV.lyr : 'no';
   cover.dataset.beat = CV.beat ? '1' : '0'; cover.dataset.clock = CV.clock ? '1' : '0'; cover.dataset.pin = CV.pin ? '1' : '0';
   cover.dataset.ring = CV.ring ? '1' : '0'; cover.dataset.holo = CV.holo ? '1' : '0'; cover.dataset.depth = CV.depth ? '1' : '0'; cover.dataset.trata = CV.trata ? '1' : '0';
-  for (const k of Object.keys(CV_OPTS)) for (const b of cover.querySelectorAll(`button[data-${k}]`)) { const on = b.dataset[k] === CV[k]; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+  for (const k of Object.keys(CV_OPTS)) for (const b of cover.querySelectorAll(`[data-${k}]`)) b.classList.toggle('on', b.dataset[k] === CV[k]);
   $('cvBeat').classList.toggle('on', CV.beat); $('cvClockBtn').classList.toggle('on', CV.clock); $('cvPin').classList.toggle('on', CV.pin); $('cvReact').classList.toggle('on', CV.react);
   const menu = $('cvMenu'); menu.dataset.tab = CV.tab; menu.querySelectorAll('[data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === CV.tab));
   $('cvRing').classList.toggle('on', CV.ring); $('cvHolo').classList.toggle('on', CV.holo); $('cvDepth').classList.toggle('on', CV.depth); $('cvTrataBtn').classList.toggle('on', CV.trata);
-  for (const id of ['cvBeat','cvClockBtn','cvPin','cvReact','cvRing','cvHolo','cvDepth','cvTrataBtn']) $(id).setAttribute('aria-pressed', String($(id).classList.contains('on')));
   const url = ext.artUrl || '';
   if (!url) CV.art = '';
   // la paleta solo con la imagen de ESTA canción: si artImg todavía es la anterior, se espera al siguiente repaso
@@ -755,53 +752,36 @@ function cvPosterSave() {
 }
 function cvPosterClose() { $('cvPosterBox').classList.remove('on'); }
 // la letra completa: se arma una vez por canción (y al llegar traducciones)
-// mantener el reloj visual fluido sin volver a serializar toda la canción en cada cuadro.
 function cvBuildList() {
-  const now=performance.now(),song=ext.key();
-  if(CV.listKey&&CV.listLines===IN.lines&&CV.listTr===IN.tr&&CV.listMode===IN.trMode&&CV.listSong===song&&now-(CV.listReadAt||0)<250)return;
-  CV.listLines=IN.lines;CV.listTr=IN.tr;CV.listMode=IN.trMode;CV.listSong=song;CV.listReadAt=now;
   const idx = IN.lines.map((l, i) => l.text ? i : -1).filter(i => i >= 0);
-  const key = ext.key() + '|' + JSON.stringify(idx.map(i => [IN.lines[i].t, IN.lines[i].text, IN.tr?.[i] || ''])) + '|' + IN.trMode;
+  const key = ext.key() + '|' + idx.length + '|' + (IN.tr || []).filter(Boolean).length + '|' + IN.trMode;
   if (key === CV.listKey) return;
   CV.listKey = key;
   const tx = i => { const main = IN.lines[i].text, tr = IN.tr?.[i] || ''; return IN.trMode === 'es' && tr ? [tr, ''] : [main, IN.trMode === 'ambas' ? tr : '']; };
-  $('cvList').innerHTML = idx.length ? idx.map(i => { const [a, b] = tx(i); return `<button type="button" class="cv-verse" data-i="${i}" data-t="${IN.lines[i].t}" aria-label="${cvEsc(a)}">${cvEsc(a)}${b ? `<small>${cvEsc(b)}</small>` : ''}</button>`; }).join('') : '<p class="none">esta canción no tiene letra sincronizada</p>';
+  $('cvList').innerHTML = idx.length ? idx.map(i => { const [a, b] = tx(i); return `<p data-i="${i}" data-t="${IN.lines[i].t}">${cvEsc(a)}${b ? `<small>${cvEsc(b)}</small>` : ''}</p>`; }).join('') : '<p class="none">esta canción no tiene letra sincronizada</p>';
   CV.cur = -2;
 }
-function cvText(id,text) { const el=$(id);if(el.textContent!==text)el.textContent=text; }
-function cvStyle(el,key,value) { if(el.style.getPropertyValue(key)!==String(value))el.style.setProperty(key,value); }
-let cvRaf=0,cvFrameAt=0,cvClockMinute=-1;
-function cvRun() { if(!cvRaf&&coverOpen&&!document.hidden)cvRaf=requestAnimationFrame(cvLoop); }
-function cvLoop(now) {
-  cvRaf=0;
-  if(!coverOpen||document.hidden)return;
-  if(now-cvFrameAt<1000/(window.FRAME_CAP||60)-3){cvRun();return;}
-  cvFrameAt=now;
+(function cvLoop() {
   if (coverOpen) {
     // canción nueva o letra que llegó tarde con la carátula abierta: se repinta sola (antes se quedaba con la anterior)
     const hasLyr = mode === 'proc' && IN.lines.some(l => l.text), tNow = performance.now();
     if ((hasLyr !== CV.hasLyr || (ext.artUrl || '') !== CV.art) && tNow - (CV.paintAt || 0) > 300) { CV.paintAt = tNow; cvPaint(); }
     const pos = ext.has() ? ext.now() : 0, dur = ext.st.dur || 0, f = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
     const shown = CV.scrub ?? pos;                                                                   // mientras haces scratch, la barra muestra adónde vas
-    if(mode==='proc') {
-      const beat=(pos-(IN.phase||0))/(IN.period||.5);
-      IN.beat=window.AUD?.live?clamp(AUD.pulse||0):Math.pow(1-(beat-Math.floor(beat)),4);
-      SEM.blockNow=IN.cuts.length>1?Math.max(0,IN.cuts.findLastIndex(t=>t<=pos)):-1;
-    }
-    cvText('cvT0',f(shown)); cvText('cvT1',f(dur)); cvStyle($('cvFill'),'width',(dur ? clamp(shown / dur) * 100 : 0) + '%');
+    $('cvT0').textContent = f(shown); $('cvT1').textContent = f(dur); $('cvFill').style.width = (dur ? clamp(shown / dur) * 100 : 0) + '%';
     const playing = ext.st.state === 'playing';
     if (CV.pp !== playing) { CV.pp = playing; $('cvPP').innerHTML = cvIco(playing ? 'M7 5h4v14H7zM13 5h4v14h-4z' : 'M8 5v14l11-7z'); }
-    for (const el of $('cover').querySelectorAll('.cv-vinyl, .cv-cd, .cv-cass')) if(el.classList.contains('spin')!==playing)el.classList.toggle('spin', playing);
+    for (const el of $('cover').querySelectorAll('.cv-vinyl, .cv-cd, .cv-cass')) el.classList.toggle('spin', playing);
     cvReactFrame(pos, dur);
-    cvStyle($('cover'),'--beat', CV.beat && !cvReduced() && mode === 'proc' ? (IN.beat || 0).toFixed(3) : 0);
-    cvStyle($('cover'),'--pulse', mode === 'proc' && !cvReduced() ? (IN.beat || 0).toFixed(3) : 0);        // anillo de ritmo: late aunque el latido de la portada esté apagado
+    $('cover').style.setProperty('--beat', CV.beat && mode === 'proc' ? (IN.beat || 0).toFixed(3) : 0);
+    $('cover').style.setProperty('--pulse', mode === 'proc' ? (IN.beat || 0).toFixed(3) : 0);        // anillo de ritmo: late aunque el latido de la portada esté apagado
     if (CV.style === 'vinilo') {
       // surco de afuera (14°) a junto a la etiqueta (33°) según el progreso; en pausa se levanta en su sitio; sin canción, a su apoyo
       const arm = $('cover').querySelector('.cv-arm');
-      cvStyle(arm,'--armRot', (ext.has() ? 14 + 19 * (dur ? clamp(shown / dur) : 0) : 0).toFixed(2) + 'deg');
-      if(arm.classList.contains('up')===playing)arm.classList.toggle('up', !playing);
+      arm.style.setProperty('--armRot', (ext.has() ? 14 + 19 * (dur ? clamp(shown / dur) : 0) : 0).toFixed(2) + 'deg');
+      arm.classList.toggle('up', !playing);
     }
-    if (CV.clock && Math.floor(Date.now()/60000)!==cvClockMinute) { const d = new Date();cvClockMinute=Math.floor(d.getTime()/60000); cvText('cvClock',d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })); cvText('cvDate',d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })); }
+    if (CV.clock) { const d = new Date(); $('cvClock').textContent = d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); $('cvDate').textContent = d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' }); }
     if (CV.trata) {
       const plan = mode === 'proc' ? SEM.plans?.[SEM.blockNow] : null, tx = plan?.summary || '';
       const el = $('cvTrataTx');
@@ -811,28 +791,26 @@ function cvLoop(now) {
       }
     }
     if (mode === 'proc') {
-      // carátula usa el reloj de reproducción, incluso si el otro motor visual está detenido.
-      const lyricTime = (window.RISOCLIP?.h?.timeNow?.() ?? pos) + (IN.off || 0) + .2;
-      const i = IN.lines.findLastIndex(l => l.t <= lyricTime), main = i >= 0 ? IN.lines[i]?.text || '' : '', tr = i >= 0 ? IN.tr?.[i] || '' : '';
+      // con el videoclip de risografía el lyric video clásico no corre y IN.shown no se actualiza: el verso se saca del tiempo de la canción
+      const i = window.RISOCLIP?.on && RISOCLIP.h ? RISOCLIP.h.lineIdx(RISOCLIP.h.timeNow()) : IN.shown, main = i >= 0 ? IN.lines[i]?.text || '' : '', tr = i >= 0 ? IN.tr?.[i] || '' : '';
       const a = IN.trMode === 'es' && tr ? tr : main, b = IN.trMode === 'ambas' ? tr : '';
-      if ($('cvLine').textContent !== a || $('cvTr').textContent !== b) { $('cvLine').textContent = a; $('cvTr').textContent = b; }
+      if ($('cvLine').textContent !== a) { $('cvLine').textContent = a; $('cvTr').textContent = b; }
       if (CV.lyr === 'completa') {
         cvBuildList();
-        const cur = IN.lines.findLastIndex(l => l.text && l.t <= lyricTime);
+        const cur = IN.lines.findLastIndex(l => l.text && l.t <= pos + .2 + (IN.off || 0));
         if (cur !== CV.cur) {
           CV.cur = cur;
           const list = $('cvList'), box = list.parentElement;
           for (const p of list.children) { const n = +p.dataset.i; p.classList.toggle('on', n === cur); p.classList.toggle('past', n < cur); }
-          const el = list.querySelector('.on');
+          const el = list.querySelector('p.on');
           list.style.transform = `translateY(${el ? box.clientHeight * .4 - el.offsetTop - el.offsetHeight / 2 : box.clientHeight * .3}px)`;
         }
       }
     }
   }
-  cvRun();
-}
-{ const _toggleCover = toggleCover; toggleCover = function (on) { _toggleCover(on); document.body.classList.toggle('cover-open', coverOpen); if (coverOpen) { CV.art = ''; CV.listKey = ''; CV.cur = -2; cvClockMinute=-1;cvFrameAt=0;cvPaint();cvRun(); } else {cancelAnimationFrame(cvRaf);cvRaf=0;} }; }
-addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(cvRaf);cvRaf=0;}else{cvFrameAt=0;cvRun();}});
+  requestAnimationFrame(cvLoop);
+})();
+{ const _toggleCover = toggleCover; toggleCover = function (on) { _toggleCover(on); document.body.classList.toggle('cover-open', coverOpen); if (coverOpen) { CV.art = ''; CV.listKey = ''; CV.cur = -2; cvPaint(); } }; }
 addEventListener('resize', () => { if (coverOpen) CV.cur = -2; });
 // esc cierra primero el menú de opciones
 addEventListener('keydown', e => { if (e.key === 'Escape' && coverOpen && $('cvPosterBox').classList.contains('on')) { e.stopImmediatePropagation(); return cvPosterClose(); } if (e.key === 'Escape' && coverOpen && $('cover').classList.contains('menu')) { e.stopImmediatePropagation(); $('cover').classList.remove('menu'); $('cvMenuBtn').classList.remove('on'); } }, true);
@@ -842,21 +820,21 @@ const CVR = { sat: 1, bri: 1, glow: 0 };
 function cvReactFrame(pos, dur) {
   const art = $('cover').querySelector('.cv-art');
   let sat = 1, bri = 1, glow = 0;
-  if (CV.react && !cvReduced() && mode === 'proc') {
+  if (CV.react && mode === 'proc') {
     const plan = SEM.plans?.[SEM.blockNow], e = plan ? (plan.energy ?? 5) : 5 + (IN.mood?.a || 0) * 3;
     const sad = plan && /triste|melancolico|oscuro|nostalgico/.test(plan.mood || '');
     if (e >= 7) { bri = 1.06 + (IN.beat || 0) * .05; sat = 1.15; glow = 60 + (e - 7) * 20; }                 // coro, drop: se ilumina
     else if (e <= 3 || sad) { sat = sad ? .5 : .7; bri = .82; }                                          // puente, lo triste: se apaga
   }
   CVR.sat += (sat - CVR.sat) * .05; CVR.bri += (bri - CVR.bri) * .08; CVR.glow += (glow - CVR.glow) * .06;
-  cvStyle(art,'--sat', CVR.sat.toFixed(3)); cvStyle(art,'--bri', CVR.bri.toFixed(3));
-  cvStyle(art,'--glowR', CVR.glow.toFixed(0) + 'px');
+  art.style.setProperty('--sat', CVR.sat.toFixed(3)); art.style.setProperty('--bri', CVR.bri.toFixed(3));
+  art.style.setProperty('--glowR', CVR.glow.toFixed(0) + 'px');
   cvNextFrame(pos, dur);
 }
 // en el drop, la portada se parte en pedazos y vuelve a armarse
 { const _m = moment; moment = function (kind) {
   _m(kind);
-  if (kind !== 'drop' || !coverOpen || !CV.react || cvReduced()) return;
+  if (kind !== 'drop' || !coverOpen || !CV.react) return;
   const art = $('cover').querySelector('.cv-art'); art.querySelector('.cv-shards')?.remove();
   const sh = document.createElement('div'); sh.className = 'cv-shards'; sh.style.setProperty('--artbg', `url("${ext.artUrl}")`);
   for (let k = 0; k < 16; k++) {
