@@ -554,3 +554,30 @@ def quien_canta(req):
         except Exception:
             pass
     return res
+
+
+# ---------- traducción de letras: natural, con signos de apertura y cierre ----------
+TR_SYSTEM = ('Eres traductor de letras de canciones. Traduces cada verso al idioma pedido con un español natural y fluido, como lo diría un hablante nativo, '
+             'no palabra por palabra: conserva el sentido, el tono y la emoción; adapta modismos y jerga; no censures. Usa la ortografía correcta: signos de apertura '
+             'y cierre (¿? ¡!), tildes, mayúscula inicial solo si el verso original la tiene, sin punto final si el original no lo tiene. Un verso de salida por cada '
+             'verso de entrada, en el mismo orden y sin unir ni partir versos; las interjecciones (oh, yeah, ooh) se dejan o se adaptan como "uoh", "yeah". '
+             'Responde solo con el JSON pedido.')
+TR_SCHEMA = {'type': 'object', 'properties': {'lines': {'type': 'array', 'items': {'type': 'string'}}}, 'required': ['lines']}
+NOMBRES = {'es': 'español', 'en': 'inglés', 'pt': 'portugués'}
+
+
+def traducir_letra(lines, src, dst):
+    """traduce con Claude Code (suscripción). Lanza si no hay respuesta con la misma cantidad de versos."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'CLAUDE_CODE', 'CLAUDECODE'))}
+    cmd = [CLAUDE_BIN, '-p', '--model', MODEL, '--effort', 'low', '--output-format', 'json', '--no-session-persistence', '--tools', '',
+           '--setting-sources', '', '--strict-mcp-config', '--disable-slash-commands', '--system-prompt', TR_SYSTEM, '--json-schema', json.dumps(TR_SCHEMA)]
+    prompt = 'Traduce al %s desde el %s estos %d versos:\n%s' % (NOMBRES.get(dst, dst), NOMBRES.get(src, src), len(lines), json.dumps(lines, ensure_ascii=False))
+    r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=90, env=env, cwd=os.path.expanduser('~'))
+    res = json.loads(r.stdout)
+    out = res.get('structured_output')
+    if out is None:
+        out = json.loads((res.get('result') or '').strip().removeprefix('```json').removesuffix('```'))
+    got = [str(x) for x in out['lines']]
+    if len(got) != len(lines):
+        raise RuntimeError('cantidad de versos distinta')
+    return got

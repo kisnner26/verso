@@ -326,7 +326,7 @@ async function startTranslation(lines, key) {
   const label = () => (IN.lyrState || 'letra sincronizada').split(' · ')[0];
   IN.lyrState = label() + ' · traduciendo al ' + (dst === 'es' ? 'español' : 'inglés'); ui();
   const pending = i => !IN.tr[i] && lines[i]?.text;
-  let done = 0, first = true;
+  let done = 0, first = true, refining = false, sentAll = false;
   while (true) {
     if (ext.key() !== key) return;
     // primero lo que suena y lo que viene, después lo que ya pasó
@@ -340,9 +340,11 @@ async function startTranslation(lines, key) {
     first = false;
     const idx = []; for (let i = a; i < n && idx.length < size; i++) if (pending(i)) idx.push(i);
     try {
-      const r = await fetch('/translate', { method: 'POST', body: JSON.stringify({ lines: idx.map(i => lines[i].text), src: IN.lang, dst }) }).then(r => r.json());
+      const r = await fetch('/translate', { method: 'POST', body: JSON.stringify({ lines: idx.map(i => lines[i].text), src: IN.lang, dst, all: sentAll ? undefined : lines.map(l => l.text).filter(Boolean) }) }).then(r => r.json());
+      sentAll = true;
       if (ext.key() !== key) return;
       if (!r.lines) { IN.lyrState = label() + ' · ' + (r.error || 'sin traducción'); ui(); return; }
+      if (r.refining) refining = true;
       r.lines.forEach((t, j) => IN.tr[idx[j]] = t || ' ');
       // la línea en pantalla recibe su traducción sin reconstruirse (sin parpadeo)
       if (idx.includes(IN.shown) && IN.trMode !== 'orig') {
@@ -360,6 +362,20 @@ async function startTranslation(lines, key) {
     done += idx.length; IN.lyrState = label() + ' · traduciendo ' + Math.min(100, Math.round(done / lines.filter(l => l.text).length * 100)) + '%'; ui();
   }
   IN.lyrState = label() + ' · traducida al ' + (dst === 'es' ? 'español' : 'inglés'); ui();
+  // el traductor de Apple ya mostró todo al instante; Claude lo pule en segundo plano y aquí se cambia por la versión natural
+  if (refining) {
+    const idx = []; lines.forEach((l, i) => { if (l.text) idx.push(i); });
+    for (let k = 0; k < 30; k++) {
+      await new Promise(r => setTimeout(r, 2000));
+      if (ext.key() !== key) return;
+      try {
+        const r = await fetch('/translate', { method: 'POST', body: JSON.stringify({ lines: idx.map(i => lines[i].text), src: IN.lang, dst, peek: true }) }).then(r => r.json());
+        if (!r.lines) { if (r.refining) continue; return; }
+        if (r.via === 'claude') { r.lines.forEach((t, j) => IN.tr[idx[j]] = t || ' '); IN.shown = -2; return; }
+        if (!r.refining) return;
+      } catch (e) { return; }
+    }
+  }
 }
 addEventListener('lyricsEarly', e => { if (e.detail.key === ext.key()) startTranslation(e.detail.lines, e.detail.key); });
 

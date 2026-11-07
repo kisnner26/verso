@@ -264,8 +264,25 @@ def tr_proc(src, dst):
     return p
 
 
-def translate(lines, src='en', dst='es'):
-    key = hashlib.sha1(('\n'.join(lines) + src + dst).encode()).hexdigest()
+def pulir_es(t):
+    """ortografía del español sobre la salida del traductor: ¿? ¡! de apertura, espacios y mayúscula tras signos"""
+    t = re.sub(r'\s+', ' ', t or '').strip()
+    t = re.sub(r'\s+([,.;:?!])', r'\1', t)
+    def abre(m):
+        seg = m.group(0)
+        core = seg.lstrip()
+        lead = seg[:len(seg) - len(core)]
+        if core.endswith('?') and '¿' not in core:
+            core = '¿' + core
+        if core.endswith('!') and '¡' not in core:
+            core = '¡' + core
+        return lead + core
+    t = re.sub(r'[^.?!]+[?!]+', abre, t)
+    return t
+
+
+def translate_apple(lines, src='en', dst='es'):
+    key = hashlib.sha1(('v2\n' + '\n'.join(lines) + src + dst).encode()).hexdigest()
     if key in TR_CACHE:
         return TR_CACHE[key]
     if not os.path.exists(TR_BIN):
@@ -283,10 +300,102 @@ def translate(lines, src='en', dst='es'):
             return {'error': str(e)}
     if isinstance(res, dict):
         return res
-    out = {'lines': res}
+    out = {'lines': [pulir_es(l) for l in res] if dst == 'es' else res}
     TR_CACHE[key] = out
     save_tr()
     return out
+
+
+# ---------- traducción en dos tiempos: el traductor de Apple responde al instante y Claude la pule en segundo plano ----------
+CL_FILE = os.path.expanduser('~/Library/Caches/lumora-traducciones-claude.json')
+try:
+    CL_CACHE = json.load(open(CL_FILE))
+except Exception:
+    CL_CACHE = {}
+CL = {'queue': {}, 'timer': None, 'lock': threading.Lock(), 'fail_until': 0, 'busy': 0, 'inflight': set()}
+CL_CHUNK, CL_PARALLEL = 8, 8
+
+
+def cl_key(line, src, dst):
+    return hashlib.sha1(('v3|%s|%s|%s' % (src, dst, line)).encode()).hexdigest()
+
+
+def cl_ok():
+    try:
+        import guion
+        return time.time() > CL['fail_until'] and os.path.exists(guion.CLAUDE_BIN)
+    except Exception:
+        return False
+
+
+def cl_run(src, dst, lines):
+    import guion
+    try:
+        got = guion.traducir_letra(lines, src, dst)
+        for l, t in zip(lines, got):
+            CL_CACHE[cl_key(l, src, dst)] = pulir_es(t) if dst == 'es' else t
+    except Exception:
+        CL['fail_until'] = time.time() + 300           # sin sesión o sin red: no insistir durante cinco minutos
+    finally:
+        with CL['lock']:
+            CL['busy'] -= 1
+            CL['inflight'].difference_update(cl_key(l, src, dst) for l in lines)
+
+
+def cl_flush():
+    with CL['lock']:
+        jobs, CL['queue'] = CL['queue'], {}
+    threads = []
+    for (src, dst), lines in jobs.items():
+        with CL['lock']:
+            lines = [l for l in dict.fromkeys(lines) if cl_key(l, src, dst) not in CL_CACHE and cl_key(l, src, dst) not in CL['inflight']]
+            CL['inflight'].update(cl_key(l, src, dst) for l in lines)
+        for k in range(0, len(lines), CL_CHUNK):          # trozos en paralelo: la canción entera tarda como un solo trozo
+            with CL['lock']:
+                CL['busy'] += 1
+            t = threading.Thread(target=cl_run, args=(src, dst, lines[k:k + CL_CHUNK]), daemon=True)
+            t.start(); threads.append(t)
+            while sum(x.is_alive() for x in threads) >= CL_PARALLEL:
+                time.sleep(.2)
+    for t in threads:
+        t.join()
+    try:
+        os.makedirs(os.path.dirname(CL_FILE), exist_ok=True)
+        json.dump(CL_CACHE, open(CL_FILE, 'w'))
+    except Exception:
+        pass
+
+
+def cl_queue(lines, src, dst):
+    with CL['lock']:
+        CL['queue'].setdefault((src, dst), []).extend(lines)
+        if CL['timer']:
+            CL['timer'].cancel()
+        CL['timer'] = threading.Timer(.05, lambda: threading.Thread(target=cl_flush, daemon=True).start())   # junta los trozos que llegan seguidos
+        CL['timer'].start()
+
+
+def translate(lines, src='en', dst='es', all_lines=None, peek=False):
+    if peek:                                            # solo mira la caché de Claude: no gasta traductor ni lanza trabajos
+        keys = [cl_key(l, src, dst) for l in lines]
+        if all(k in CL_CACHE for k in keys):
+            return {'lines': [CL_CACHE[k] for k in keys], 'via': 'claude'}
+        return {'via': 'wait', 'refining': time.time() < CL['fail_until'] + 1 and CL['fail_until'] < time.time() or bool(CL['busy'] or CL['queue'])}
+    if not (lines and ('es' in (src, dst)) and src != dst and src in LANGS and dst in LANGS and cl_ok()):
+        return translate_apple(lines, src, dst)
+    if all_lines:                                       # la canción entera, de una vez: Claude empieza ya, en trozos paralelos
+        cl_queue([l for l in all_lines if isinstance(l, str) and l.strip()][:300], src, dst)
+    keys = [cl_key(l, src, dst) for l in lines]
+    miss = [l for l, k in zip(lines, keys) if k not in CL_CACHE]
+    if not miss:
+        return {'lines': [CL_CACHE[k] for k in keys], 'via': 'claude'}
+    ap = translate_apple(miss, src, dst)
+    if 'lines' not in ap:
+        return ap
+    mine = dict(zip(miss, ap['lines']))
+    if not all_lines:
+        cl_queue(miss, src, dst)
+    return {'lines': [CL_CACHE.get(k) or mine[l] for l, k in zip(lines, keys)], 'via': 'apple', 'refining': True}
 
 
 # ---------- imágenes reales: banderas, íconos de marcas y fotos de Wikipedia ----------
@@ -1144,7 +1253,7 @@ class Handler(SimpleHTTPRequestHandler):
             n = int(self.headers.get('Content-Length') or 0)
             body = json.loads(self.rfile.read(n) or b'{}')
             try:
-                return self.send_json(translate(body.get('lines') or [], body.get('src', 'en'), body.get('dst', 'es')))
+                return self.send_json(translate(body.get('lines') or [], body.get('src', 'en'), body.get('dst', 'es'), body.get('all'), bool(body.get('peek'))))
             except Exception as e:
                 return self.send_json({'error': str(e)[:200]}, 500)
         if u.path != '/cmd':
