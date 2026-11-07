@@ -503,12 +503,12 @@ addEventListener('keydown', e => {
   if (e.key === 'c' && mode !== 'panel') toggleCover();
 }, true);
 
-// ---------- desfase de la letra por canción: [ atrasa, ] adelanta (0,2 s) ----------
+// ---------- desfase de la letra por canción: [ atrasa, ] adelanta (0,2 s); { } mueven 1 s; \ restablece ----------
 function offKey() { return 'tc_off:' + ext.key(); }
 function loadOff() { try { IN.off = parseFloat(localStorage.getItem(offKey())) || 0; } catch (e) { IN.off = 0; } }
 addEventListener('keydown', e => {
-  if (mode !== 'proc' || !'[]'.includes(e.key) || /TEXTAREA|INPUT/.test(document.activeElement?.tagName || '')) return;
-  IN.off = Math.round(((IN.off || 0) + (e.key === ']' ? .2 : -.2)) * 10) / 10;
+  if (mode !== 'proc' || !'[]{}\\'.includes(e.key) || /TEXTAREA|INPUT/.test(document.activeElement?.tagName || '')) return;
+  IN.off = e.key === '\\' ? 0 : Math.round(((IN.off || 0) + ({ ']': .2, '[': -.2, '}': 1, '{': -1 }[e.key])) * 10) / 10;
   try { localStorage.setItem(offKey(), IN.off); } catch (err) {}
   IN.shown = -2;
   setTag('letra ' + (IN.off > 0 ? '+' : '') + IN.off.toFixed(1) + ' s');
